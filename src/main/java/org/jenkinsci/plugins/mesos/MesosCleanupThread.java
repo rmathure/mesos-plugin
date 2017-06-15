@@ -10,9 +10,9 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
-import hudson.ExtensionList;
 import hudson.model.AsyncPeriodicWork;
 import hudson.model.Computer;
+import hudson.model.Executor;
 import hudson.model.TaskListener;
 import jenkins.model.Jenkins;
 
@@ -85,6 +85,10 @@ public class MesosCleanupThread extends AsyncPeriodicWork {
             if (MesosComputer.class.isInstance(c)) {
                 MesosSlave mesosSlave = (MesosSlave) c.getNode();
 
+                if (c.isOffline() && !c.isIdle()) {
+                    this.stopAllJobsOnANode(c);
+                }
+
                 if (mesosSlave != null && mesosSlave.isPendingDelete()) {
                     final MesosComputer comp = (MesosComputer) c;
                     computersToDeleteBuilder.add(comp);
@@ -124,6 +128,12 @@ public class MesosCleanupThread extends AsyncPeriodicWork {
                 logger.log(Level.WARNING, "Failed to disconnect and delete " + c.getName() + ": " + e.getMessage());
             }
 
+        }
+    }
+
+    private void stopAllJobsOnANode(Computer computer) {
+        for (Executor e: computer.getExecutors()) {
+            e.doStop();
         }
     }
 
